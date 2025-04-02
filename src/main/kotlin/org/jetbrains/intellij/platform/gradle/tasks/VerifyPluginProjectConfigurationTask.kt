@@ -2,15 +2,19 @@
 
 package org.jetbrains.intellij.platform.gradle.tasks
 
+import groovy.lang.Closure
+import org.gradle.api.Action
 import org.gradle.api.DefaultTask
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.reporting.Reporting
 import org.gradle.api.tasks.*
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.kotlin.dsl.named
+import org.gradle.util.internal.ClosureBackedAction
 import org.jetbrains.intellij.platform.gradle.Constants.CACHE_DIRECTORY
 import org.jetbrains.intellij.platform.gradle.Constants.Constraints.MINIMAL_INTELLIJ_PLATFORM_BUILD_NUMBER
 import org.jetbrains.intellij.platform.gradle.Constants.Constraints.MINIMAL_INTELLIJ_PLATFORM_VERSION
@@ -18,6 +22,8 @@ import org.jetbrains.intellij.platform.gradle.Constants.Plugin
 import org.jetbrains.intellij.platform.gradle.Constants.Plugins
 import org.jetbrains.intellij.platform.gradle.Constants.Tasks
 import org.jetbrains.intellij.platform.gradle.extensions.IntelliJPlatformExtension
+import org.jetbrains.intellij.platform.gradle.reports.VerificationReportContainer
+import org.jetbrains.intellij.platform.gradle.reports.VerificationReports
 import org.jetbrains.intellij.platform.gradle.tasks.aware.*
 import org.jetbrains.intellij.platform.gradle.utils.*
 import java.io.File
@@ -39,13 +45,10 @@ import kotlin.io.path.writeText
  */
 // TODO: Use Reporting for handling verification report output? https://docs.gradle.org/current/dsl/org.gradle.api.reporting.Reporting.html
 @CacheableTask
-abstract class VerifyPluginProjectConfigurationTask : DefaultTask(), IntelliJPlatformVersionAware, KotlinMetadataAware, RuntimeAware, PluginAware {
+abstract class VerifyPluginProjectConfigurationTask : DefaultTask(), IntelliJPlatformVersionAware, KotlinMetadataAware, RuntimeAware, PluginAware, Reporting<VerificationReports> {
 
-    /**
-     * Report the directory where the verification result will be stored.
-     */
-    @get:OutputDirectory
-    abstract val reportDirectory: DirectoryProperty
+    @Nested
+    private val reports: VerificationReports = project.objects.newInstance(VerificationReportContainer::class.java)
 
     /**
      * Root project path.
@@ -183,7 +186,13 @@ abstract class VerifyPluginProjectConfigurationTask : DefaultTask(), IntelliJPla
             .joinToString("\n") { "- $it" }
             .takeIf { it.isNotEmpty() }
             ?.also { log.warn("The following plugin configuration issues were found:\n$it") }
-            .also { reportDirectory.file("report.txt").asPath.writeText(it.orEmpty()) }
+            .also {
+                if (reports.txt.required.get()) {
+                    val outputLocation = reports.txt.outputLocation.get().asFile
+
+                    outputLocation.toPath().writeText(it.orEmpty())
+                }
+            }
     }
 
     private fun getPlatformJavaVersion(buildNumber: Version) =
@@ -195,6 +204,15 @@ abstract class VerifyPluginProjectConfigurationTask : DefaultTask(), IntelliJPla
     private operator fun JavaVersion?.compareTo(other: JavaVersion?) = other?.let { this?.compareTo(it) } ?: 0
 
     private operator fun Version?.compareTo(other: Version?) = other?.let { this?.compareTo(it) } ?: 0
+
+    override fun getReports(): VerificationReports = reports
+
+    override fun reports(closure: Closure<*>): VerificationReports = reports(ClosureBackedAction(closure))
+
+    override fun reports(configureAction: Action<in VerificationReports>): VerificationReports {
+        configureAction.execute(reports)
+        return reports
+    }
 
     init {
         group = Plugin.GROUP_NAME
@@ -212,7 +230,6 @@ abstract class VerifyPluginProjectConfigurationTask : DefaultTask(), IntelliJPla
 
                 val rootDirectoryProvider = project.provider { project.rootProject.rootDir }
 
-                reportDirectory.convention(project.layout.buildDirectory.dir("reports/verifyPluginConfiguration"))
                 rootDirectory.convention(rootDirectoryProvider)
                 intellijPlatformCache.convention(project.extensionProvider.map { it.cachePath.toFile() })
                 gitignoreFile.convention(project.layout.file(project.provider {
@@ -221,6 +238,18 @@ abstract class VerifyPluginProjectConfigurationTask : DefaultTask(), IntelliJPla
                 sourceCompatibility.convention(compileJavaTaskProvider.map { it.sourceCompatibility })
                 targetCompatibility.convention(compileJavaTaskProvider.map { it.targetCompatibility })
                 module.convention(initializeIntelliJPlatformPluginTaskProvider.flatMap { it.module })
+
+                reports {
+                    txt.required.convention(true)
+
+                    //val reportDirectory: DirectoryProperty = project.layout.buildDirectory
+                    val reportDirectory: DirectoryProperty = project.reporting.get().baseDirectory
+                    val file = reportDirectory.file("reports/verifyPluginConfiguration/reports.txt")
+
+                    if (!reports.txt.outputLocation.isPresent) {
+                       txt.outputLocation.fileValue(file.get().asFile)
+                    }
+                }
             }
     }
 }

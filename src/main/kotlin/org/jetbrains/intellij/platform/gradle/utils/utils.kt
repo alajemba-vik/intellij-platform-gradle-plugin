@@ -24,6 +24,7 @@ import org.gradle.api.plugins.PluginManager
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
+import org.gradle.api.reporting.ReportingExtension
 import org.gradle.kotlin.dsl.listProperty
 import org.gradle.kotlin.dsl.property
 import org.gradle.kotlin.dsl.the
@@ -170,6 +171,9 @@ val Project.rootProjectPath
 
 val Project.extensionProvider
     get() = provider { the<IntelliJPlatformExtension>() }
+
+val Project.reporting
+    get() = provider { the<ReportingExtension>() }
 
 internal val PluginManager.isModule
     get() = hasPlugin(Plugins.MODULE) && !hasPlugin(Plugin.ID)
