@@ -2,6 +2,7 @@
 
 package org.jetbrains.intellij.platform.gradle.tasks
 
+import org.gradle.api.DefaultTask
 import org.apache.tools.ant.util.TeeOutputStream
 import org.gradle.api.GradleException
 import org.gradle.api.Project
@@ -14,11 +15,17 @@ import org.gradle.api.tasks.*
 import org.gradle.api.tasks.Optional
 import org.gradle.kotlin.dsl.get
 import org.gradle.kotlin.dsl.named
+import org.gradle.process.ExecOperations
+import org.gradle.process.JavaExecSpec
+import org.gradle.workers.WorkAction
+import org.gradle.workers.WorkParameters
+import org.gradle.workers.WorkerExecutor
 import org.jetbrains.intellij.platform.gradle.Constants.Configurations
 import org.jetbrains.intellij.platform.gradle.Constants.Configurations.Attributes
 import org.jetbrains.intellij.platform.gradle.Constants.Plugin
 import org.jetbrains.intellij.platform.gradle.Constants.Tasks
 import org.jetbrains.intellij.platform.gradle.extensions.IntelliJPlatformExtension
+import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask.FailureLevel
 import org.jetbrains.intellij.platform.gradle.tasks.aware.PluginVerifierAware
 import org.jetbrains.intellij.platform.gradle.tasks.aware.RuntimeAware
 import org.jetbrains.intellij.platform.gradle.utils.Logger
@@ -26,6 +33,7 @@ import org.jetbrains.intellij.platform.gradle.utils.asPath
 import org.jetbrains.intellij.platform.gradle.utils.extensionProvider
 import java.io.ByteArrayOutputStream
 import java.util.*
+import javax.inject.Inject
 import kotlin.io.path.exists
 import kotlin.io.path.pathString
 
@@ -40,7 +48,7 @@ import kotlin.io.path.pathString
 // TODO: Use Reporting for handling verification report output? See: https://docs.gradle.org/current/dsl/org.gradle.api.reporting.Reporting.html
 // TODO: Parallel run? https://docs.gradle.org/current/userguide/worker_api.html#converting_to_worker_api
 @UntrackedTask(because = "Should always run")
-abstract class VerifyPluginTask : JavaExec(), RuntimeAware, PluginVerifierAware {
+abstract class VerifyPluginTask : DefaultTask(), RuntimeAware, PluginVerifierAware {
 
     /**
      * Holds a reference to IntelliJ Platform IDEs which will be used by the IntelliJ Plugin Verifier CLI tool for verification.
@@ -170,11 +178,14 @@ abstract class VerifyPluginTask : JavaExec(), RuntimeAware, PluginVerifierAware 
 
     private val log = Logger(javaClass)
 
+    @get:Inject
+    abstract val workerExecutor: WorkerExecutor
+
     /**
      * Runs the IntelliJ Plugin Verifier against the plugin artifact.
      */
     @TaskAction
-    override fun exec() {
+    fun verifyAction() {
         val file = archiveFile.orNull?.asPath
         if (file == null || !file.exists()) {
             throw IllegalStateException("Plugin file does not exist: $file")
@@ -194,30 +205,33 @@ abstract class VerifyPluginTask : JavaExec(), RuntimeAware, PluginVerifierAware 
 
         log.debug("Verifier path: $executable")
 
-        classpath = objectFactory.fileCollection().from(executable)
-
-        with(ides) {
-            if (isEmpty) {
-                throw GradleException(
-                    """
+        if (ides.isEmpty) {
+            throw GradleException(
+                """
                     No IDE resolved for verification with the IntelliJ Plugin Verifier.
                     Please ensure the `intellijPlatform.pluginVerification.ides` extension block is configured along with the `defaultRepositories()` (or at least `localPlatformArtifacts()`) entry in the repositories section.
                     See: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-extension.html#intellijPlatform-pluginVerification-ides
                     """.trimIndent()
-                )
-            }
-            args(listOf("check-plugin") + getOptions() + file.pathString + map {
-                when {
-                    it.isDirectory -> it.absolutePath
-                    else -> it.readText()
-                }
-            })
+            )
         }
 
-        ByteArrayOutputStream().use { os ->
-            standardOutput = TeeOutputStream(System.out, os)
-            super.exec()
-            verifyOutput(os.toString())
+        val workQueue = workerExecutor.processIsolation()
+
+        workQueue.submit(
+            VerificationTaskWork::class.java
+        ) {
+            getClassPath.setFrom(executable)
+            getIdes.setFrom(ides)
+            getArchiveFilePath.set(file.pathString)
+            getVerificationReportsDirectory.set(verificationReportsDirectory)
+            getRuntimeDirectory.set(runtimeDirectory)
+            getExternalPrefixes.set(externalPrefixes)
+            getTeamCityOutputFormat.set(teamCityOutputFormat)
+            getSubsystemsToCheck.set(subsystemsToCheck)
+            getOffline.set(offline)
+            getIgnoredProblemsFile.set(ignoredProblemsFile)
+            getVerificationReportsFormats.set(verificationReportsFormats)
+            getFreeArgs.set(freeArgs)
         }
     }
 
@@ -293,15 +307,17 @@ abstract class VerifyPluginTask : JavaExec(), RuntimeAware, PluginVerifierAware 
 
     init {
         group = Plugin.GROUP_NAME
-        description = "Runs the IntelliJ Plugin Verifier CLI tool to check the binary compatibility with specified IDE builds."
+        description =
+            "Runs the IntelliJ Plugin Verifier CLI tool to check the binary compatibility with specified IDE builds."
 
-        mainClass.set("com.jetbrains.pluginverifier.PluginVerifierMain")
+        //mainClass.set("com.jetbrains.pluginverifier.PluginVerifierMain")
     }
 
     companion object : Registrable {
         override fun register(project: Project) =
             project.registerTask<VerifyPluginTask>(Tasks.VERIFY_PLUGIN) {
-                val intellijPluginVerifierIdesConfiguration = project.configurations[Configurations.INTELLIJ_PLUGIN_VERIFIER_IDES]
+                val intellijPluginVerifierIdesConfiguration =
+                    project.configurations[Configurations.INTELLIJ_PLUGIN_VERIFIER_IDES]
                 val pluginVerificationProvider = project.extensionProvider.map { it.pluginVerification }
                 val buildPluginTaskProvider = project.tasks.named<BuildPluginTask>(Tasks.BUILD_PLUGIN)
 
@@ -412,4 +428,129 @@ abstract class VerifyPluginTask : JavaExec(), RuntimeAware, PluginVerifierAware 
 
         override fun toString() = name.lowercase().replace('_', '-')
     }
+}
+
+
+interface VerificationTaskWorkParameters : WorkParameters {
+    val getIdes: ConfigurableFileCollection
+    val getArchiveFilePath: Property<String>
+    val getVerificationReportsDirectory: DirectoryProperty
+    val getRuntimeDirectory: DirectoryProperty
+    val getExternalPrefixes: ListProperty<String>
+    val getTeamCityOutputFormat: Property<Boolean>
+    val getSubsystemsToCheck: Property<VerifyPluginTask.Subsystems>
+    val getOffline: Property<Boolean>
+    val getIgnoredProblemsFile: RegularFileProperty
+    val getVerificationReportsFormats: ListProperty<VerifyPluginTask.VerificationReportsFormats>
+    val getFreeArgs: ListProperty<String>
+    val getFailureLevel: ListProperty<FailureLevel>
+    val getClassPath: ConfigurableFileCollection
+}
+
+abstract class VerificationTaskWork @Inject constructor(
+    private val execOperations: ExecOperations,
+    private val objectFactory: org.gradle.api.model.ObjectFactory,
+) : WorkAction<VerificationTaskWorkParameters> {
+
+    val log = Logger(javaClass)
+    val outputStream = ByteArrayOutputStream()
+
+    override fun execute() {
+        execOperations.javaexec {
+            this.getOptions(parameters)
+            standardOutput = TeeOutputStream(System.out, outputStream)
+        }.exitValue
+
+        val failureLevel = parameters.getFailureLevel
+        verifyOutput(outputStream.toString(), failureLevel)
+
+    }
+
+    /**
+     * Collects all the options for the Plugin Verifier CLI provided with the task configuration.
+     *
+     * @return An array with all available CLI options
+     */
+    private fun JavaExecSpec.getOptions(parameters: VerificationTaskWorkParameters) {
+
+        val filePathString = parameters.getArchiveFilePath.get()
+        val ides = parameters.getIdes
+        val verificationReportsDirectory = parameters.getVerificationReportsDirectory
+        val runtimeDirectory = parameters.getRuntimeDirectory
+        val externalPrefixes = parameters.getExternalPrefixes
+        val teamCityOutputFormat = parameters.getTeamCityOutputFormat
+        val subsystemsToCheck = parameters.getSubsystemsToCheck
+        val offline = parameters.getOffline
+        val ignoredProblemsFile = parameters.getIgnoredProblemsFile
+        val verificationReportsFormats = parameters.getVerificationReportsFormats
+        val freeArgs = parameters.getFreeArgs
+        val getArguments = mutableListOf(
+            "-verification-reports-dir", verificationReportsDirectory.asPath.pathString,
+            "-runtime-dir", runtimeDirectory.asPath.pathString,
+        )
+
+        mainClass.set("com.jetbrains.pluginverifier.PluginVerifierMain")
+        classpath = objectFactory.fileCollection().from(parameters.getClassPath)
+
+        externalPrefixes.get().takeIf { it.isNotEmpty() }?.let {
+            getArguments.add("-external-prefixes")
+            getArguments.add(it.joinToString(":"))
+        }
+        if (teamCityOutputFormat.get()) {
+            getArguments.add("-team-city")
+        }
+        if (subsystemsToCheck.orNull != null) {
+            getArguments.add("-subsystems-to-check")
+            getArguments.add(subsystemsToCheck.get().toString())
+        }
+        if (offline.get()) {
+            getArguments.add("-offline")
+        }
+
+        // TODO check PV version
+        getArguments.add("-verification-reports-formats")
+        getArguments.add(verificationReportsFormats.get().joinToString(","))
+
+        if (ignoredProblemsFile.orNull != null) {
+            getArguments.add("-ignored-problems")
+            getArguments.add(ignoredProblemsFile.asPath.pathString)
+        }
+
+        freeArgs.orNull?.let {
+            getArguments.addAll(it)
+        }
+
+        args(listOf("check-plugin") + getArguments + filePathString + ides.map {
+            when {
+                it.isDirectory -> it.absolutePath
+                else -> it.readText()
+            }
+        })
+    }
+
+    @Throws(GradleException::class)
+    private fun verifyOutput(output: String, failureLevel: ListProperty<FailureLevel>) {
+        log.debug("Current failure levels: ${FailureLevel.values().joinToString(", ")}")
+
+        val invalidFilesMessage = "The following files specified for the verification are not valid plugins:"
+        if (output.contains(invalidFilesMessage)) {
+            val errorMessage = output.lines()
+                .dropWhile { it != invalidFilesMessage }
+                .dropLastWhile { !it.startsWith(" ") }
+                .joinToString("\n")
+
+            throw GradleException(errorMessage)
+        }
+
+        FailureLevel.values().forEach { level ->
+            if (failureLevel.get().contains(level) && output.contains(level.sectionHeading)) {
+                log.debug("Failing task on '$failureLevel' failure level")
+                throw GradleException(
+                    "$level: ${level.message} Check Plugin Verifier report for more details.\n" +
+                            "Incompatible API Changes: https://jb.gg/intellij-api-changes"
+                )
+            }
+        }
+    }
+
 }
