@@ -195,15 +195,21 @@ abstract class IntelliJPlatformDependenciesExtension @Inject constructor(
      * @param version The provider for the version of the IntelliJ Platform dependency.
      * @param useInstaller Switches between the IDE installer and archive from the IntelliJ Maven repository.
      * @param configurationName The name of the configuration to add the dependency to.
+     * @param intellijPlatformConfigurationName The name of the IntelliJ Platform configuration that holds information about the current IntelliJ Platform instance.
      */
-    internal fun customCreate(type: Provider<*>, version: Provider<String>, useInstaller: Boolean = true, configurationName: String) =
-        dependenciesHelper.addIntelliJPlatformDependency(
-            typeProvider = type,
-            versionProvider = version,
-            useInstallerProvider = dependenciesHelper.provider { useInstaller },
-            configurationName = configurationName,
-            fallbackToBase = true,
-        )
+    internal fun customCreate(
+        type: Provider<*>,
+        version: Provider<String>,
+        useInstaller: Boolean = true,
+        configurationName: String,
+        intellijPlatformConfigurationName: String,
+    ) = dependenciesHelper.addIntelliJPlatformDependency(
+        typeProvider = type,
+        versionProvider = version,
+        useInstallerProvider = dependenciesHelper.provider { useInstaller },
+        configurationName = configurationName,
+        intellijPlatformConfigurationName = intellijPlatformConfigurationName,
+    )
 
     /**
      * Adds a dependency on the custom IntelliJ Platform with a fallback to the base IntelliJ Platform.
@@ -212,15 +218,21 @@ abstract class IntelliJPlatformDependenciesExtension @Inject constructor(
      * @param version The provider for the version of the IntelliJ Platform dependency.
      * @param useInstaller Switches between the IDE installer and archive from the IntelliJ Maven repository.
      * @param configurationName The name of the configuration to add the dependency to.
+     * @param intellijPlatformConfigurationName The name of the IntelliJ Platform configuration that holds information about the current IntelliJ Platform instance.
      */
-    internal fun customCreate(type: Provider<*>, version: Provider<String>, useInstaller: Provider<Boolean>, configurationName: String) =
-        dependenciesHelper.addIntelliJPlatformDependency(
-            typeProvider = type,
-            versionProvider = version,
-            useInstallerProvider = useInstaller,
-            configurationName = configurationName,
-            fallbackToBase = true,
-        )
+    internal fun customCreate(
+        type: Provider<*>,
+        version: Provider<String>,
+        useInstaller: Provider<Boolean>,
+        configurationName: String,
+        intellijPlatformConfigurationName: String,
+    ) = dependenciesHelper.addIntelliJPlatformDependency(
+        typeProvider = type,
+        versionProvider = version,
+        useInstallerProvider = useInstaller,
+        configurationName = configurationName,
+        intellijPlatformConfigurationName = intellijPlatformConfigurationName,
+    )
 
     /**
      * Adds a dependency on Android Studio.
@@ -254,6 +266,7 @@ abstract class IntelliJPlatformDependenciesExtension @Inject constructor(
      * @param version The version of Aqua.
      * @param useInstaller Switches between the IDE installer and archive from the IntelliJ Maven repository.
      */
+    @Deprecated("Aqua (QA) is no longer available as a target IntelliJ Platform")
     @JvmOverloads
     fun aqua(version: String, useInstaller: Boolean = true) = dependenciesHelper.addIntelliJPlatformDependency(
         typeProvider = dependenciesHelper.provider { IntelliJPlatformType.Aqua },
@@ -267,6 +280,7 @@ abstract class IntelliJPlatformDependenciesExtension @Inject constructor(
      * @param version The provider for the version of Aqua.
      * @param useInstaller Switches between the IDE installer and archive from the IntelliJ Maven repository.
      */
+    @Deprecated("Aqua (QA) is no longer available as a target IntelliJ Platform")
     @JvmOverloads
     fun aqua(version: Provider<String>, useInstaller: Boolean = true) = dependenciesHelper.addIntelliJPlatformDependency(
         typeProvider = dependenciesHelper.provider { IntelliJPlatformType.Aqua },
@@ -926,6 +940,51 @@ abstract class IntelliJPlatformDependenciesExtension @Inject constructor(
      */
     fun plugins(notations: Provider<List<String>>) = dependenciesHelper.addIntelliJPlatformPluginDependencies(
         pluginsProvider = notations.map { it.mapNotNull { notation -> notation.parsePluginNotation() } },
+    )
+
+    /**
+     * Adds a dependency on a plugin in a version compatible with the current IntelliJ Platform.
+     *
+     * @param id The plugin identifier.
+     */
+    fun compatiblePlugin(id: String) = dependenciesHelper.addCompatibleIntelliJPlatformPluginDependencies(
+        pluginsProvider = dependenciesHelper.provider { listOf(id) },
+    )
+
+    /**
+     * Adds a dependency on a plugin in a version compatible with the current IntelliJ Platform.
+     *
+     * @param id The provider of the plugin identifier.
+     */
+    fun compatiblePlugin(id: Provider<String>) = dependenciesHelper.addCompatibleIntelliJPlatformPluginDependencies(
+        pluginsProvider = id.map { listOf(it) },
+    )
+
+    /**
+     * Adds a dependency on plugins in versions compatible with the current IntelliJ Platform.
+     *
+     * @param ids The plugin identifiers.
+     */
+    fun compatiblePlugins(ids: List<String>) = dependenciesHelper.addCompatibleIntelliJPlatformPluginDependencies(
+        pluginsProvider = dependenciesHelper.provider { ids },
+    )
+
+    /**
+     * Adds a dependency on plugins in versions compatible with the current IntelliJ Platform.
+     *
+     * @param ids The plugin identifiers.
+     */
+    fun compatiblePlugins(vararg ids: String) = dependenciesHelper.addCompatibleIntelliJPlatformPluginDependencies(
+        pluginsProvider = dependenciesHelper.provider { ids.asList() },
+    )
+
+    /**
+     * Adds a dependency on plugins in versions compatible with the current IntelliJ Platform.
+     *
+     * @param ids The provider of the plugin identifiers.
+     */
+    fun compatiblePlugins(ids: Provider<List<String>>) = dependenciesHelper.addCompatibleIntelliJPlatformPluginDependencies(
+        pluginsProvider = ids.map { it },
     )
 
     /**

@@ -14,8 +14,11 @@ import org.jetbrains.intellij.platform.gradle.Constants.Configurations.Attribute
 import org.jetbrains.intellij.platform.gradle.Constants.Extensions
 import org.jetbrains.intellij.platform.gradle.Constants.Plugin
 import org.jetbrains.intellij.platform.gradle.Constants.Tasks
+import org.jetbrains.intellij.platform.gradle.GradleProperties
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatform
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
+import org.jetbrains.intellij.platform.gradle.artifacts.LocalIvyArtifactPathComponentMetadataRule
+import org.jetbrains.intellij.platform.gradle.get
 import org.jetbrains.intellij.platform.gradle.plugins.configureExtension
 import org.jetbrains.intellij.platform.gradle.tasks.*
 import org.jetbrains.intellij.platform.gradle.tasks.aware.IntelliJPlatformVersionAware
@@ -25,7 +28,8 @@ import org.jetbrains.intellij.platform.gradle.tasks.aware.SplitModeAware.SplitMo
 import org.jetbrains.intellij.platform.gradle.tasks.aware.TestableAware
 import org.jetbrains.intellij.platform.gradle.utils.create
 import org.jetbrains.intellij.platform.gradle.utils.isModule
-import org.jetbrains.intellij.platform.gradle.utils.platformPath
+import org.jetbrains.intellij.platform.gradle.utils.rootProjectPath
+import org.jetbrains.intellij.platform.gradle.utils.settings
 import javax.inject.Inject
 
 @IntelliJPlatform
@@ -79,8 +83,9 @@ abstract class IntelliJPlatformTestingExtension @Inject constructor(
                     dependenciesExtension.customCreate(
                         type = type,
                         version = version,
-                        configurationName = this@create.name,
                         useInstaller = useInstaller,
+                        configurationName = this@create.name,
+                        intellijPlatformConfigurationName = Configurations.INTELLIJ_PLATFORM_DEPENDENCY.withSuffix,
                     )
                 }
 
@@ -106,6 +111,14 @@ abstract class IntelliJPlatformTestingExtension @Inject constructor(
                             customIntelliJPlatformDependencyConfiguration.dependencies
                         })
                     }
+
+                    LocalIvyArtifactPathComponentMetadataRule.register(
+                        configuration = this,
+                        dependencies = project.dependencies,
+                        providers = project.providers,
+                        settings = project.settings,
+                        rootProjectDirectory = project.rootProjectPath,
+                    )
                 }
                 val customJetBrainsRuntimeConfiguration = project.configurations.create(
                     name = Configurations.JETBRAINS_RUNTIME.withSuffix,
@@ -116,12 +129,10 @@ abstract class IntelliJPlatformTestingExtension @Inject constructor(
                     }
 
                     defaultDependencies {
-                        val customPlatformPath = project.provider {
-                            customIntelliJPlatformConfiguration.platformPath()
-                        }
-                        addLater(dependenciesHelper.obtainJetBrainsRuntimeVersion(customPlatformPath).map { version ->
-                            dependenciesHelper.createJetBrainsRuntime(version)
-                        })
+                        addLater(
+                            dependenciesHelper.obtainJetBrainsRuntimeVersion(customIntelliJPlatformConfiguration.name)
+                                .map { version -> dependenciesHelper.createJetBrainsRuntime(version) }
+                        )
                     }
                 }
 
@@ -184,18 +195,43 @@ abstract class IntelliJPlatformTestingExtension @Inject constructor(
                     name = Configurations.INTELLIJ_PLATFORM_TEST_CLASSPATH.withSuffix,
                     description = "Custom IntelliJ Platform Test Classpath",
                 ) {
-                    extendsFrom(project.configurations[Configurations.INTELLIJ_PLATFORM_TEST_CLASSPATH])
+                    attributes {
+                        attribute(Attributes.extracted, true)
+                        attribute(Attributes.collected, true)
+                    }
+
+                    extendsFrom(customIntelliJPlatformConfiguration)
                     extendsFrom(customIntellijPlatformTestDependenciesConfiguration)
                 }
                 val customIntellijPlatformTestRuntimeClasspathConfiguration = project.configurations.create(
                     name = Configurations.INTELLIJ_PLATFORM_TEST_RUNTIME_CLASSPATH.withSuffix,
                     description = "Custom IntelliJ Platform Test Runtime Classpath",
                 ) {
+                    attributes
+                        .attribute(Attributes.extracted, true)
+                        .attribute(Attributes.collected, true)
+
                     extendsFrom(project.configurations[Configurations.INTELLIJ_PLATFORM_TEST_RUNTIME_CLASSPATH])
                     extendsFrom(customIntellijPlatformTestDependenciesConfiguration)
                 }
 
+                val customIntelliJPlatformTestRuntimeFixClasspathConfiguration = project.configurations.create(
+                    name = Configurations.INTELLIJ_PLATFORM_TEST_RUNTIME_FIX_CLASSPATH.withSuffix,
+                    description = "Custom IntelliJ Platform Test Runtime Fix Classpath",
+                ) {
+                    defaultDependencies {
+                        addAllLater(project.providers[GradleProperties.AddDefaultIntelliJPlatformDependencies].map { enabled ->
+                            val platformPath = runCatching { dependenciesHelper.platformPath(customIntelliJPlatformConfiguration.name) }.getOrNull()
+                            when (enabled && platformPath != null) {
+                                true -> dependenciesHelper.createIntelliJPlatformTestRuntime(platformPath)
+                                false -> null
+                            }.let { listOfNotNull(it) }
+                        })
+                    }
+                }
+
                 plugins {
+                    intellijPlatformConfigurationName = customIntelliJPlatformConfiguration.name
                     intellijPlatformPluginDependencyConfigurationName = customIntellijPlatformTestPluginDependencyConfiguration.name
                     intellijPlatformPluginLocalConfigurationName = customIntellijPlatformTestPluginLocalConfiguration.name
                     intellijPlatformTestBundledPluginsConfiguration = customIntellijPlatformTestBundledPluginsConfiguration.name
@@ -224,6 +260,7 @@ abstract class IntelliJPlatformTestingExtension @Inject constructor(
                     if (this is TestableAware) {
                         intellijPlatformTestClasspathConfiguration = customIntellijPlatformTestClasspathConfiguration
                         intellijPlatformTestRuntimeClasspathConfiguration = customIntellijPlatformTestRuntimeClasspathConfiguration
+                        intelliJPlatformTestRuntimeFixClasspathConfiguration = customIntelliJPlatformTestRuntimeFixClasspathConfiguration
                     }
 
                     applySandboxFrom(prepareSandboxTask)

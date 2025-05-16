@@ -9,7 +9,9 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.UntrackedTask
 import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.assign
+import org.gradle.kotlin.dsl.get
 import org.gradle.kotlin.dsl.named
+import org.jetbrains.intellij.platform.gradle.Constants.Configurations
 import org.jetbrains.intellij.platform.gradle.Constants.Plugin
 import org.jetbrains.intellij.platform.gradle.Constants.Sandbox
 import org.jetbrains.intellij.platform.gradle.Constants.Tasks
@@ -114,6 +116,7 @@ abstract class TestIdeTask : Test(), TestableAware, IntelliJPlatformVersionAware
             // 4. Test classpath configuration
             // 5. Original classpath without runtime dependencies
             // 6. Test runtime classpath configuration
+            // 7. Test runtime fixes classpath configuration, see: https://youtrack.jetbrains.com/issue/IJPL-180516
             classpath = project.files(
                 instrumentedTestCode,
                 currentPluginLibsProvider,
@@ -121,6 +124,7 @@ abstract class TestIdeTask : Test(), TestableAware, IntelliJPlatformVersionAware
                 sourceTask.intellijPlatformTestClasspathConfiguration,
                 classpath.filter { it !in runtimeDependencies.files },
                 sourceTask.intellijPlatformTestRuntimeClasspathConfiguration,
+                sourceTask.intelliJPlatformTestRuntimeFixClasspathConfiguration,
             )
 
             testClassesDirs = instrumentedTestCode + testClassesDirs

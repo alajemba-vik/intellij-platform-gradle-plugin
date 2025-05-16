@@ -5,9 +5,7 @@ package org.jetbrains.intellij.platform.gradle.plugins.project
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.initialization.resolve.RulesMode
 import org.gradle.api.plugins.JavaLibraryPlugin
-import org.gradle.kotlin.dsl.all
 import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.get
 import org.gradle.plugins.ide.idea.IdeaPlugin
@@ -21,17 +19,19 @@ import org.jetbrains.intellij.platform.gradle.artifacts.LocalIvyArtifactPathComp
 import org.jetbrains.intellij.platform.gradle.artifacts.transform.CollectorTransformer
 import org.jetbrains.intellij.platform.gradle.artifacts.transform.ExtractorTransformer
 import org.jetbrains.intellij.platform.gradle.artifacts.transform.LocalPluginsNormalizationTransformers
-import org.jetbrains.intellij.platform.gradle.extensions.*
+import org.jetbrains.intellij.platform.gradle.extensions.IntelliJPlatformDependenciesExtension
+import org.jetbrains.intellij.platform.gradle.extensions.IntelliJPlatformDependenciesHelper
+import org.jetbrains.intellij.platform.gradle.extensions.IntelliJPlatformExtension
 import org.jetbrains.intellij.platform.gradle.extensions.IntelliJPlatformExtension.*
 import org.jetbrains.intellij.platform.gradle.extensions.IntelliJPlatformExtension.PluginConfiguration.*
+import org.jetbrains.intellij.platform.gradle.extensions.IntelliJPlatformRepositoriesExtension
 import org.jetbrains.intellij.platform.gradle.get
 import org.jetbrains.intellij.platform.gradle.plugins.checkGradleVersion
-import org.jetbrains.intellij.platform.gradle.services.extractorServiceProvider
+import org.jetbrains.intellij.platform.gradle.services.ExtractorService
+import org.jetbrains.intellij.platform.gradle.services.registerClassLoaderScopedBuildService
 import org.jetbrains.intellij.platform.gradle.tasks.*
 import org.jetbrains.intellij.platform.gradle.tasks.aware.*
 import org.jetbrains.intellij.platform.gradle.utils.*
-import kotlin.io.path.absolute
-import kotlin.io.path.invariantSeparatorsPathString
 
 abstract class IntelliJPlatformBasePlugin : Plugin<Project> {
 
@@ -120,33 +120,13 @@ abstract class IntelliJPlatformBasePlugin : Plugin<Project> {
                     )
                 }
 
-                // Registers LocalIvyArtifactPathComponentMetadataRule
-                incoming.afterResolve {
-                    val ruleName = LocalIvyArtifactPathComponentMetadataRule::class.simpleName
-                    // Intentionally delaying the check just in case if it changes somehow late in the lifecycle.
-                    val rulesMode = project.settings.dependencyResolutionManagement.rulesMode.get()
-
-                    if (RulesMode.PREFER_PROJECT == rulesMode) {
-                        if (resolvedConfiguration.hasError()) {
-                            log.warn("Configuration '${Configurations.INTELLIJ_PLATFORM_DEPENDENCY}' has some resolution errors. $ruleName will not be registered.")
-                        } else if (isEmpty) {
-                            log.warn("Configuration '${Configurations.INTELLIJ_PLATFORM_DEPENDENCY}' is empty. $ruleName will not be registered.")
-                        } else {
-                            val artifactLocationPath = platformPath()
-                                .absolute().normalize().invariantSeparatorsPathString
-                            val ivyLocationPath = project.providers.localPlatformArtifactsPath(project.rootProjectPath)
-                                .absolute().normalize().invariantSeparatorsPathString
-
-                            project.dependencies.components.all<LocalIvyArtifactPathComponentMetadataRule> {
-                                params(artifactLocationPath, ivyLocationPath)
-                            }
-
-                            log.info("$ruleName has been registered.")
-                        }
-                    } else {
-                        log.info("$ruleName can not be registered because '${rulesMode}' mode is used in settings.")
-                    }
-                }
+                LocalIvyArtifactPathComponentMetadataRule.register(
+                    configuration = this,
+                    dependencies = project.dependencies,
+                    providers = project.providers,
+                    settings = project.settings,
+                    rootProjectDirectory = project.rootProjectPath,
+                )
             }
 
             val intellijPlatformPluginDependenciesConfiguration = create(
@@ -323,7 +303,13 @@ abstract class IntelliJPlatformBasePlugin : Plugin<Project> {
                 description = "Java Compiler used by Ant tasks",
             ) {
                 defaultDependencies {
-                    add(dependenciesHelper.createJavaCompiler())
+                    addAllLater(project.providers[GradleProperties.AddDefaultIntelliJPlatformDependencies].map { enabled ->
+                        val platformPath = runCatching { dependenciesHelper.platformPath(intellijPlatformConfiguration.name) }.getOrNull()
+                        when (enabled && platformPath != null) {
+                            true -> dependenciesHelper.createJavaCompiler()
+                            false -> null
+                        }.let { listOfNotNull(it) }
+                    })
                 }
             }
 
@@ -340,21 +326,43 @@ abstract class IntelliJPlatformBasePlugin : Plugin<Project> {
             create(
                 name = Configurations.INTELLIJ_PLATFORM_CLASSPATH,
                 description = "IntelliJ Platform Classpath resolvable configuration"
-            )
+            ) {
+                extendsFrom(
+                    intellijPlatformConfiguration,
+                    intellijPlatformDependenciesConfiguration,
+                )
+            }
             create(
                 name = Configurations.INTELLIJ_PLATFORM_TEST_CLASSPATH,
                 description = "IntelliJ Platform Test Classpath resolvable configuration"
-            )
+            ) {
+                extendsFrom(
+                    intellijPlatformConfiguration,
+                    intellijPlatformDependenciesConfiguration,
+                    intellijPlatformTestDependenciesConfiguration,
+                )
+            }
             create(
                 name = Configurations.INTELLIJ_PLATFORM_TEST_RUNTIME_CLASSPATH,
                 description = "IntelliJ Platform Test Runtime Classpath resolvable configuration"
             ) {
+                attributes {
+                    attributes.attribute(Attributes.kotlinJPlatformType, "jvm")
+                }
+
+                extendsFrom(
+                    this@configurations[Configurations.External.TEST_RUNTIME_CLASSPATH],
+                )
+            }
+            create(
+                name = Configurations.INTELLIJ_PLATFORM_TEST_RUNTIME_FIX_CLASSPATH,
+                description = "IntelliJ Platform Test Runtime fix Classpath resolvable configuration"
+            ) {
                 defaultDependencies {
                     addAllLater(project.providers[GradleProperties.AddDefaultIntelliJPlatformDependencies].map { enabled ->
-                        val intelliJPlatformAvailable = runCatching { dependenciesHelper.platformPath }.getOrNull() != null
-
-                        when (enabled && intelliJPlatformAvailable) {
-                            true -> dependenciesHelper.createIntelliJPlatformTestRuntime()
+                        val platformPath = runCatching { dependenciesHelper.platformPath(intellijPlatformConfiguration.name) }.getOrNull()
+                        when (enabled && platformPath != null) {
+                            true -> dependenciesHelper.createIntelliJPlatformTestRuntime(platformPath)
                             false -> null
                         }.let { listOfNotNull(it) }
                     })
@@ -367,28 +375,20 @@ abstract class IntelliJPlatformBasePlugin : Plugin<Project> {
                 attributes {
                     attributes.attribute(Attributes.kotlinJPlatformType, "jvm")
                 }
+
+                extendsFrom(
+                    this@configurations[Configurations.External.RUNTIME_CLASSPATH],
+                )
             }
 
             this@configurations[Configurations.External.COMPILE_ONLY].extendsFrom(
                 intellijPlatformConfiguration,
                 intellijPlatformDependenciesConfiguration,
             )
-            this@configurations[Configurations.External.TEST_IMPLEMENTATION].extendsFrom(
+            this@configurations[Configurations.External.TEST_COMPILE_ONLY].extendsFrom(
                 intellijPlatformConfiguration,
                 intellijPlatformDependenciesConfiguration,
                 intellijPlatformTestDependenciesConfiguration,
-            )
-            this@configurations[Configurations.INTELLIJ_PLATFORM_CLASSPATH].extendsFrom(
-                intellijPlatformConfiguration,
-                intellijPlatformDependenciesConfiguration,
-            )
-            this@configurations[Configurations.INTELLIJ_PLATFORM_TEST_CLASSPATH].extendsFrom(
-                intellijPlatformConfiguration,
-                intellijPlatformDependenciesConfiguration,
-                intellijPlatformTestDependenciesConfiguration,
-            )
-            this@configurations[Configurations.INTELLIJ_PLATFORM_RUNTIME_CLASSPATH].extendsFrom(
-                this@configurations[Configurations.External.RUNTIME_CLASSPATH],
             )
             project.pluginManager.withPlugin(Plugins.External.JAVA_TEST_FIXTURES) {
                 this@configurations[Configurations.External.TEST_FIXTURES_COMPILE_ONLY].extendsFrom(
@@ -430,8 +430,8 @@ abstract class IntelliJPlatformBasePlugin : Plugin<Project> {
                     .attribute(Attributes.collected, true)
             }
 
-            ExtractorTransformer.register(this, project.gradle.extractorServiceProvider)
-            CollectorTransformer.register(this, project.configurations[Configurations.INTELLIJ_PLATFORM_DEPENDENCY])
+            ExtractorTransformer.register(this, project.gradle.registerClassLoaderScopedBuildService(ExtractorService::class))
+            CollectorTransformer.register(this)
             LocalPluginsNormalizationTransformers.register(this)
 
             project.pluginManager.withPlugin(Plugins.External.JAVA_TEST_FIXTURES) {

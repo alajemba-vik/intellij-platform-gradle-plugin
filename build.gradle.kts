@@ -28,53 +28,40 @@ description = properties("description").get()
 
 repositories {
     mavenCentral()
-    maven("https://cache-redirector.jetbrains.com/intellij-dependencies")
-    maven("https://cache-redirector.jetbrains.com/intellij-repository/releases")
 }
 
 val additionalPluginClasspath: Configuration by configurations.creating
-val jpsModule: Configuration by configurations.creating
 
 dependencies {
-    implementation(libs.annotations)
-    implementation(libs.undertow)
+    api(libs.undertow)
 
-    compileOnly(libs.bundles.jps) {
-        exclude("org.jetbrains.kotlin")
-        exclude("org.jetbrains.kotlinx")
-        jpsModule(this)
-    }
     implementation(libs.intellij.structure.base) {
         exclude("org.jetbrains.kotlin")
     }
-    implementation(libs.intellij.structure.ide) {
-        exclude("org.jetbrains.kotlin")
-        exclude("org.jetbrains.kotlinx")
-
-        libs.bundles.jps.get().forEach {
-            exclude(it.group, it.name)
-        }
-    }
-    implementation(libs.intellij.structure.intellij) {
+    api(libs.intellij.structure.ide) {
         exclude("org.jetbrains.kotlin")
         exclude("org.jetbrains.kotlinx")
     }
-    implementation(libs.intellij.pluginRepositoryRestClient) {
+    api(libs.intellij.structure.intellij) {
+        exclude("org.jetbrains.kotlin")
+        exclude("org.jetbrains.kotlinx")
+    }
+    api(libs.intellij.pluginRepositoryRestClient) {
         exclude("org.jetbrains.kotlin")
         exclude("org.jetbrains.kotlinx")
         exclude("org.slf4j")
     }
 
-    implementation(libs.xmlutil.core)
-    implementation(libs.xmlutil.serialization) {
+    runtimeOnly(libs.xmlutil.core)
+    api(libs.xmlutil.serialization) {
         exclude("io.github.pdvrieze.xmlutil", "core")
     }
+    implementation(libs.kotlinx.serialization.core)
     implementation(libs.kotlinx.serialization.json)
 
     compileOnly(embeddedKotlin("gradle-plugin"))
     additionalPluginClasspath(embeddedKotlin("gradle-plugin"))
 
-    api(libs.okio)
     api(libs.okhttp)
     api(libs.retrofit)
 
@@ -85,7 +72,6 @@ dependencies {
     testFixturesImplementation(gradleTestKit())
     testFixturesImplementation(embeddedKotlin("test"))
     testFixturesImplementation(embeddedKotlin("test-junit"))
-    testFixturesImplementation(libs.annotations)
 }
 
 kotlin {
@@ -108,13 +94,6 @@ tasks {
 
     jar {
         patchManifest()
-
-        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        jpsModule.files.forEach {
-            from(zipTree(it)) {
-                exclude("META-INF/**", "messages/**", "misc/**", "module-info.class")
-            }
-        }
     }
 
     validatePlugins {
@@ -188,6 +167,7 @@ fun Test.configureTests() {
     systemProperties["test.markdownPlugin.version"] = properties("testMarkdownPluginVersion").get()
 
     jvmArgs(
+        "-Xmx4G",
         "--add-opens=java.base/java.lang=ALL-UNNAMED",
         "--add-opens=java.base/java.util=ALL-UNNAMED",
         "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
@@ -222,7 +202,6 @@ artifacts {
     archives(sourcesJar)
 }
 
-@Suppress("UnstableApiUsage")
 gradlePlugin {
     website.set(properties("website"))
     vcsUrl.set(properties("vcsUrl"))

@@ -457,13 +457,6 @@ abstract class IntelliJPlatformExtension @Inject constructor(
                             it.runCatching { productInfo.buildNumber.toVersion() }.getOrDefault(Version())
                         }
                         sinceBuild.convention(buildVersion.map { "${it.major}.${it.minor}" })
-                        untilBuild.convention(buildVersion.flatMap { version ->
-                            if (version.major >= 243) {
-                                project.provider { null }
-                            } else {
-                                project.provider { "${version.major}.*" }
-                            }
-                        })
                     }
             }
         }
@@ -821,6 +814,7 @@ abstract class IntelliJPlatformExtension @Inject constructor(
                     versionProvider = dependenciesHelper.provider { version },
                     useInstallerProvider = dependenciesHelper.provider { useInstaller },
                     configurationName = Configurations.INTELLIJ_PLUGIN_VERIFIER_IDES_DEPENDENCY,
+                    intellijPlatformConfigurationName = Configurations.INTELLIJ_PLUGIN_VERIFIER_IDES_DEPENDENCY,
                 )
 
             /**
@@ -837,6 +831,7 @@ abstract class IntelliJPlatformExtension @Inject constructor(
                     versionProvider = dependenciesHelper.provider { version },
                     useInstallerProvider = dependenciesHelper.provider { useInstaller },
                     configurationName = Configurations.INTELLIJ_PLUGIN_VERIFIER_IDES_DEPENDENCY,
+                    intellijPlatformConfigurationName = Configurations.INTELLIJ_PLUGIN_VERIFIER_IDES_DEPENDENCY,
                 )
 
             /**
@@ -853,6 +848,7 @@ abstract class IntelliJPlatformExtension @Inject constructor(
                     versionProvider = version,
                     useInstallerProvider = dependenciesHelper.provider { useInstaller },
                     configurationName = Configurations.INTELLIJ_PLUGIN_VERIFIER_IDES_DEPENDENCY,
+                    intellijPlatformConfigurationName = Configurations.INTELLIJ_PLUGIN_VERIFIER_IDES_DEPENDENCY,
                 )
 
             /**
@@ -867,6 +863,7 @@ abstract class IntelliJPlatformExtension @Inject constructor(
                 versionProvider = version,
                 useInstallerProvider = useInstaller,
                 configurationName = Configurations.INTELLIJ_PLUGIN_VERIFIER_IDES_DEPENDENCY,
+                intellijPlatformConfigurationName = Configurations.INTELLIJ_PLUGIN_VERIFIER_IDES_DEPENDENCY,
             )
 
             /**

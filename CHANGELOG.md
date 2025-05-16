@@ -4,12 +4,40 @@
 
 ### Added
 
+- Add `compatiblePlugin(id)`/`compatiblePlugins(ids)` dependency helper for resolving plugins from JetBrains Marketplace in the latest compatible versions.
+- Add `TestFrameworkType.Plugin.CSS` and `TestFrameworkType.Plugin.XML` to support test development requiring XML or CSS language.
+- Warn when Plugin Verifier is about to run verification against more than five IDEs.
+- Make the `printBundledPlugins` task print bundled plugin names next to IDs. JetBrains/intellij-platform-gradle-plugin#1674
+
+### Changed
+
+- Deprecate Aqua (QA) as a target IntelliJ Platform
+- Print requested IntelliJ Platform when throwing exception about unresolved dependency.
+- Make `IntelliJPlatformDependenciesHelper` aware of custom IntelliJ Platform when used within custom tasks.
+- Move the Coroutines JavaAgent lock file into module's build directory
+- Skip creating the Coroutines JavaAgent for modules
+- Remove the default `untilBuild` value
+- Drop JPS dependencies shadowing
+
+### Fixed
+
+- Add test-related sandbox configurations and runtime fixes
+- Set the required `extracted` and `collected` attributes for custom test classpath configurations
+- Set the repository name and fix the `action` application in `createCustomPluginRepository`
+- Refactor build service registration to use `registerClassLoaderScopedBuildService` to avoid issues caused because of different classpath in the project. JetBrains/intellij-platform-gradle-plugin#1919
+- Use proper IntelliJ Platform when setting up custom tests runtime
+
+## [2.5.0] - 2025-04-01
+
+### Added
+
 - Introduce configurations for IntelliJ Platform test plugins, dependencies, and bundled modules along with `testPlugin`, `testBundledPlugin`, and `testBundledModule` dependency helpers
 - Support different `kotlinx.coroutines` JavaAgent FQNs by checking for the class presence in the IntelliJ Platform classpath
 
 ### Fixed
 
 - Do not fail when JBR dependency cannot be resolved, and proceed with JRE resolution using other available predictions
+- Performance improvement: memoize the `ProductInfoPathResolver` resolution.
 
 ## [2.4.0] - 2025-03-20
 
@@ -1407,7 +1435,8 @@ The `2.0.0` release is completely rewritten. Please see [documentation page](htt
 
 - Support for attaching IntelliJ sources in IDEA
 
-[next]: https://github.com/JetBrains/intellij-platform-gradle-plugin/compare/v2.4.0...HEAD
+[next]: https://github.com/JetBrains/intellij-platform-gradle-plugin/compare/v2.5.0...HEAD
+[2.5.0]: https://github.com/JetBrains/intellij-platform-gradle-plugin/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/JetBrains/intellij-platform-gradle-plugin/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/JetBrains/intellij-platform-gradle-plugin/compare/v2.2.1...v2.3.0
 [2.2.1]: https://github.com/JetBrains/intellij-platform-gradle-plugin/compare/v2.2.0...v2.2.1

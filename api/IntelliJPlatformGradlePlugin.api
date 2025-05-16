@@ -40,6 +40,7 @@ public final class org/jetbrains/intellij/platform/gradle/Constants$Configuratio
 	public static final field INTELLIJ_PLATFORM_TEST_PLUGIN_DEPENDENCY Ljava/lang/String;
 	public static final field INTELLIJ_PLATFORM_TEST_PLUGIN_LOCAL Ljava/lang/String;
 	public static final field INTELLIJ_PLATFORM_TEST_RUNTIME_CLASSPATH Ljava/lang/String;
+	public static final field INTELLIJ_PLATFORM_TEST_RUNTIME_FIX_CLASSPATH Ljava/lang/String;
 	public static final field INTELLIJ_PLUGIN_VERIFIER Ljava/lang/String;
 	public static final field INTELLIJ_PLUGIN_VERIFIER_IDES Ljava/lang/String;
 	public static final field INTELLIJ_PLUGIN_VERIFIER_IDES_DEPENDENCY Ljava/lang/String;
@@ -99,9 +100,9 @@ public final class org/jetbrains/intellij/platform/gradle/Constants$Configuratio
 	public static final field RUNTIME_ELEMENTS Ljava/lang/String;
 	public static final field RUNTIME_ONLY Ljava/lang/String;
 	public static final field TEST_COMPILE_CLASSPATH Ljava/lang/String;
+	public static final field TEST_COMPILE_ONLY Ljava/lang/String;
 	public static final field TEST_FIXTURES_COMPILE_CLASSPATH Ljava/lang/String;
 	public static final field TEST_FIXTURES_COMPILE_ONLY Ljava/lang/String;
-	public static final field TEST_IMPLEMENTATION Ljava/lang/String;
 	public static final field TEST_RUNTIME_CLASSPATH Ljava/lang/String;
 }
 
@@ -190,12 +191,6 @@ public final class org/jetbrains/intellij/platform/gradle/Constants$Sandbox$Plug
 	public static final field LIB Ljava/lang/String;
 	public static final field LIB_MODULES Ljava/lang/String;
 	public static final field MODULES Ljava/lang/String;
-}
-
-public final class org/jetbrains/intellij/platform/gradle/Constants$Services {
-	public static final field EXTRACTOR Ljava/lang/String;
-	public static final field IDES_MANAGER Ljava/lang/String;
-	public static final field INSTANCE Lorg/jetbrains/intellij/platform/gradle/Constants$Services;
 }
 
 public final class org/jetbrains/intellij/platform/gradle/Constants$Tasks {
@@ -348,6 +343,10 @@ public final class org/jetbrains/intellij/platform/gradle/TestFrameworkType$Plug
 	public static final field INSTANCE Lorg/jetbrains/intellij/platform/gradle/TestFrameworkType$Plugin;
 }
 
+public final class org/jetbrains/intellij/platform/gradle/TestFrameworkType$Plugin$CSS : org/jetbrains/intellij/platform/gradle/TestFrameworkType {
+	public static final field INSTANCE Lorg/jetbrains/intellij/platform/gradle/TestFrameworkType$Plugin$CSS;
+}
+
 public final class org/jetbrains/intellij/platform/gradle/TestFrameworkType$Plugin$Go : org/jetbrains/intellij/platform/gradle/TestFrameworkType {
 	public static final field INSTANCE Lorg/jetbrains/intellij/platform/gradle/TestFrameworkType$Plugin$Go;
 }
@@ -374,6 +373,10 @@ public final class org/jetbrains/intellij/platform/gradle/TestFrameworkType$Plug
 
 public final class org/jetbrains/intellij/platform/gradle/TestFrameworkType$Plugin$Ruby : org/jetbrains/intellij/platform/gradle/TestFrameworkType {
 	public static final field INSTANCE Lorg/jetbrains/intellij/platform/gradle/TestFrameworkType$Plugin$Ruby;
+}
+
+public final class org/jetbrains/intellij/platform/gradle/TestFrameworkType$Plugin$XML : org/jetbrains/intellij/platform/gradle/TestFrameworkType {
+	public static final field INSTANCE Lorg/jetbrains/intellij/platform/gradle/TestFrameworkType$Plugin$XML;
 }
 
 public final class org/jetbrains/intellij/platform/gradle/TestFrameworkType$Starter : org/jetbrains/intellij/platform/gradle/TestFrameworkType {
@@ -422,9 +425,13 @@ public final class org/jetbrains/intellij/platform/gradle/argumentProviders/Spli
 }
 
 public abstract class org/jetbrains/intellij/platform/gradle/artifacts/LocalIvyArtifactPathComponentMetadataRule : org/gradle/api/artifacts/ComponentMetadataRule {
+	public static final field Companion Lorg/jetbrains/intellij/platform/gradle/artifacts/LocalIvyArtifactPathComponentMetadataRule$Companion;
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
 	public synthetic fun execute (Ljava/lang/Object;)V
 	public fun execute (Lorg/gradle/api/artifacts/ComponentMetadataContext;)V
+}
+
+public final class org/jetbrains/intellij/platform/gradle/artifacts/LocalIvyArtifactPathComponentMetadataRule$Companion {
 }
 
 public abstract class org/jetbrains/intellij/platform/gradle/artifacts/repositories/BaseArtifactRepository : org/gradle/api/artifacts/repositories/ArtifactRepository, org/gradle/api/artifacts/repositories/UrlArtifactRepository {
@@ -467,10 +474,6 @@ public abstract class org/jetbrains/intellij/platform/gradle/artifacts/transform
 }
 
 public final class org/jetbrains/intellij/platform/gradle/artifacts/transform/CollectorTransformer$Companion {
-}
-
-public abstract interface class org/jetbrains/intellij/platform/gradle/artifacts/transform/CollectorTransformer$Parameters : org/gradle/api/artifacts/transform/TransformParameters {
-	public abstract fun getIntellijPlatform ()Lorg/gradle/api/file/ConfigurableFileCollection;
 }
 
 public abstract class org/jetbrains/intellij/platform/gradle/artifacts/transform/ExtractorTransformer : org/gradle/api/artifacts/transform/TransformAction {
@@ -542,6 +545,11 @@ public abstract class org/jetbrains/intellij/platform/gradle/extensions/IntelliJ
 	public final fun clion (Lorg/gradle/api/provider/Provider;Z)V
 	public static synthetic fun clion$default (Lorg/jetbrains/intellij/platform/gradle/extensions/IntelliJPlatformDependenciesExtension;Ljava/lang/String;ZILjava/lang/Object;)V
 	public static synthetic fun clion$default (Lorg/jetbrains/intellij/platform/gradle/extensions/IntelliJPlatformDependenciesExtension;Lorg/gradle/api/provider/Provider;ZILjava/lang/Object;)V
+	public final fun compatiblePlugin (Ljava/lang/String;)V
+	public final fun compatiblePlugin (Lorg/gradle/api/provider/Provider;)V
+	public final fun compatiblePlugins (Ljava/util/List;)V
+	public final fun compatiblePlugins (Lorg/gradle/api/provider/Provider;)V
+	public final fun compatiblePlugins ([Ljava/lang/String;)V
 	public final fun create (Ljava/lang/String;)V
 	public final fun create (Ljava/lang/String;Ljava/lang/String;)V
 	public final fun create (Ljava/lang/String;Ljava/lang/String;Z)V
@@ -958,6 +966,11 @@ public abstract class org/jetbrains/intellij/platform/gradle/extensions/IntelliJ
 	public final fun bundledPlugins (Ljava/util/List;)V
 	public final fun bundledPlugins (Lorg/gradle/api/provider/Provider;)V
 	public final fun bundledPlugins ([Ljava/lang/String;)V
+	public final fun compatiblePlugin (Ljava/lang/String;)V
+	public final fun compatiblePlugin (Lorg/gradle/api/provider/Provider;)V
+	public final fun compatiblePlugins (Ljava/util/List;)V
+	public final fun compatiblePlugins (Lorg/gradle/api/provider/Provider;)V
+	public final fun compatiblePlugins ([Ljava/lang/String;)V
 	public final fun disablePlugin (Ljava/lang/String;)V
 	public final fun disablePlugin (Lorg/gradle/api/provider/Provider;)V
 	public final fun disablePlugins (Ljava/util/List;)V
@@ -2432,10 +2445,6 @@ public abstract class org/jetbrains/intellij/platform/gradle/services/ExtractorS
 	public final fun extract (Ljava/nio/file/Path;Ljava/nio/file/Path;)V
 }
 
-public final class org/jetbrains/intellij/platform/gradle/services/ExtractorServiceKt {
-	public static final fun getExtractorServiceProvider (Lorg/gradle/api/invocation/Gradle;)Lorg/gradle/api/provider/Provider;
-}
-
 public abstract class org/jetbrains/intellij/platform/gradle/services/IdesManagerService : org/gradle/api/services/BuildService {
 	public fun <init> ()V
 	public final fun resolve (Ljava/nio/file/Path;)Lcom/jetbrains/plugin/structure/ide/Ide;
@@ -2661,6 +2670,7 @@ public final class org/jetbrains/intellij/platform/gradle/tasks/PrepareTestTask$
 public abstract class org/jetbrains/intellij/platform/gradle/tasks/PrintBundledPluginsTask : org/gradle/api/DefaultTask, org/jetbrains/intellij/platform/gradle/tasks/aware/IntelliJPlatformVersionAware {
 	public static final field Companion Lorg/jetbrains/intellij/platform/gradle/tasks/PrintBundledPluginsTask$Companion;
 	public fun <init> ()V
+	public abstract fun getIdesManager ()Lorg/gradle/api/provider/Property;
 	public final fun printBundledPlugins ()V
 }
 
@@ -2901,6 +2911,7 @@ public abstract interface class org/jetbrains/intellij/platform/gradle/tasks/awa
 public abstract interface class org/jetbrains/intellij/platform/gradle/tasks/aware/IntelliJPlatformVersionAware {
 	public abstract fun getIntelliJPlatformConfiguration ()Lorg/gradle/api/file/ConfigurableFileCollection;
 	public abstract fun getIntelliJPlatformPluginConfiguration ()Lorg/gradle/api/file/ConfigurableFileCollection;
+	public abstract fun getIntelliJPlatformTestRuntimeFixClasspathConfiguration ()Lorg/gradle/api/file/ConfigurableFileCollection;
 	public fun getPlatformPath ()Ljava/nio/file/Path;
 	public fun getProductInfo ()Lorg/jetbrains/intellij/platform/gradle/models/ProductInfo;
 	public fun validateIntelliJPlatformVersion ()V
@@ -2955,6 +2966,7 @@ public abstract interface class org/jetbrains/intellij/platform/gradle/tasks/awa
 	public abstract fun getSandboxLogDirectory ()Lorg/gradle/api/file/DirectoryProperty;
 	public abstract fun getSandboxPluginsDirectory ()Lorg/gradle/api/file/DirectoryProperty;
 	public abstract fun getSandboxSystemDirectory ()Lorg/gradle/api/file/DirectoryProperty;
+	public abstract fun getTestSandbox ()Lorg/gradle/api/provider/Property;
 }
 
 public abstract interface class org/jetbrains/intellij/platform/gradle/tasks/aware/SigningAware {
@@ -3046,13 +3058,36 @@ public final class org/jetbrains/intellij/platform/gradle/utils/PlatformKotlinVe
 	public static final fun getPlatformKotlinVersions ()Ljava/util/Map;
 }
 
+public final class org/jetbrains/intellij/platform/gradle/utils/RequestedIntelliJPlatform {
+	public fun <init> (Lorg/jetbrains/intellij/platform/gradle/IntelliJPlatformType;Ljava/lang/String;Z)V
+	public final fun component1 ()Lorg/jetbrains/intellij/platform/gradle/IntelliJPlatformType;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Z
+	public final fun copy (Lorg/jetbrains/intellij/platform/gradle/IntelliJPlatformType;Ljava/lang/String;Z)Lorg/jetbrains/intellij/platform/gradle/utils/RequestedIntelliJPlatform;
+	public static synthetic fun copy$default (Lorg/jetbrains/intellij/platform/gradle/utils/RequestedIntelliJPlatform;Lorg/jetbrains/intellij/platform/gradle/IntelliJPlatformType;Ljava/lang/String;ZILjava/lang/Object;)Lorg/jetbrains/intellij/platform/gradle/utils/RequestedIntelliJPlatform;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getInstaller ()Z
+	public final fun getType ()Lorg/jetbrains/intellij/platform/gradle/IntelliJPlatformType;
+	public final fun getVersion ()Ljava/lang/String;
+	public fun hashCode ()I
+	public final fun isNightly ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/jetbrains/intellij/platform/gradle/utils/RequestedIntelliJPlatforms {
+	public fun <init> (Lorg/gradle/api/provider/ProviderFactory;Lorg/gradle/api/model/ObjectFactory;)V
+	public final fun get (Ljava/lang/String;)Lorg/gradle/api/provider/Provider;
+	public final fun set (Ljava/lang/String;Lorg/gradle/api/provider/Provider;Lorg/gradle/api/provider/Provider;Lorg/gradle/api/provider/Provider;)Lorg/gradle/api/provider/Provider;
+}
+
 public final class org/jetbrains/intellij/platform/gradle/utils/UtilsKt {
 	public static final fun getAsPath (Lorg/gradle/api/file/FileSystemLocation;)Ljava/nio/file/Path;
 	public static final fun getExtensionProvider (Lorg/gradle/api/Project;)Lorg/gradle/api/provider/Provider;
 	public static final fun getRootProjectPath (Lorg/gradle/api/Project;)Ljava/nio/file/Path;
 	public static final fun getSettings (Lorg/gradle/api/Project;)Lorg/gradle/api/internal/SettingsInternal;
 	public static final fun isSpecified (Lorg/gradle/api/provider/Property;)Z
-	public static final fun platformPath (Lorg/gradle/api/file/FileCollection;)Ljava/nio/file/Path;
+	public static final fun platformPath (Lorg/gradle/api/file/FileCollection;Lorg/jetbrains/intellij/platform/gradle/utils/RequestedIntelliJPlatform;)Ljava/nio/file/Path;
+	public static synthetic fun platformPath$default (Lorg/gradle/api/file/FileCollection;Lorg/jetbrains/intellij/platform/gradle/utils/RequestedIntelliJPlatform;ILjava/lang/Object;)Ljava/nio/file/Path;
 }
 
 public final class org/jetbrains/intellij/platform/gradle/utils/Version : java/lang/Comparable {
