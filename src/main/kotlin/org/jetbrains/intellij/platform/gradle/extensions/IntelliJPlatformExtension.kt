@@ -56,6 +56,8 @@ abstract class IntelliJPlatformExtension @Inject constructor(
 
     private val intelliJPlatformConfiguration = configurations[Configurations.INTELLIJ_PLATFORM_DEPENDENCY].asLenient
 
+    abstract val testStringInExtension: Property<String>
+
     /**
      * Provides read-only access to the IntelliJ Platform project cache location.
      */
@@ -1020,6 +1022,8 @@ abstract class IntelliJPlatformExtension @Inject constructor(
                 project.providers,
                 project.rootProjectPath,
             ) {
+                // LEARN: Set a default value for the testStringInExtension property
+                testStringInExtension.convention("No value passed, so this is default")
                 autoReload.convention(true)
                 buildSearchableOptions.convention(true)
                 instrumentCode.convention(true)

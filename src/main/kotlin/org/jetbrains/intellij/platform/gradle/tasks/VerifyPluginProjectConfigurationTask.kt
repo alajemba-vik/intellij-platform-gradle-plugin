@@ -41,6 +41,9 @@ import kotlin.io.path.writeText
 @CacheableTask
 abstract class VerifyPluginProjectConfigurationTask : DefaultTask(), IntelliJPlatformVersionAware, KotlinMetadataAware, RuntimeAware, PluginAware {
 
+    // LEARN: Test property to learn how to update tasks configuration through the IntelliJPlatformExtension
+    @get:Input
+    abstract val testStringInTask: Property<String>
     /**
      * Report the directory where the verification result will be stored.
      */
@@ -105,6 +108,11 @@ abstract class VerifyPluginProjectConfigurationTask : DefaultTask(), IntelliJPla
         val kotlinVersion = kotlinVersion.orNull?.toVersion()
         val kotlinxCoroutinesLibraryPresent = kotlinxCoroutinesLibraryPresent.get()
         val platformKotlinLanguageVersion = getPlatformKotlinVersion(platformBuild)?.run { "$major.$minor".toVersion() }
+
+        // LEARN: Use testString property in task action
+        print("====================")
+        print("Hello, see this testString value ${testStringInTask.get()}")
+        print("====================")
 
         sequence {
             if (!isModule) {
@@ -205,6 +213,9 @@ abstract class VerifyPluginProjectConfigurationTask : DefaultTask(), IntelliJPla
         override fun register(project: Project) =
             project.registerTask<VerifyPluginProjectConfigurationTask>(Tasks.VERIFY_PLUGIN_PROJECT_CONFIGURATION) {
                 log.info("Configuring plugin configuration verification task")
+
+                // LEARN: Get the value of the testString property from the IntelliJPlatformExtension
+                this.testStringInTask.convention(project.extensionProvider.flatMap { it.testStringInExtension })
 
                 val compileJavaTaskProvider = project.tasks.named<JavaCompile>(Tasks.External.COMPILE_JAVA)
                 val initializeIntelliJPlatformPluginTaskProvider =
